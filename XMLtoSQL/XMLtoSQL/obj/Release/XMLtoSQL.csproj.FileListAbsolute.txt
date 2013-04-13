@@ -1,0 +1,6 @@
+C:\Users\francis.brero\Documents\GitHub\XMLtoSQL\XMLtoSQL\XMLtoSQL\bin\Release\XMLtoSQL.exe.config
+C:\Users\francis.brero\Documents\GitHub\XMLtoSQL\XMLtoSQL\XMLtoSQL\bin\Release\XMLtoSQL.exe
+C:\Users\francis.brero\Documents\GitHub\XMLtoSQL\XMLtoSQL\XMLtoSQL\bin\Release\XMLtoSQL.pdb
+C:\Users\francis.brero\Documents\GitHub\XMLtoSQL\XMLtoSQL\XMLtoSQL\obj\Release\XMLtoSQL.exe
+C:\Users\francis.brero\Documents\GitHub\XMLtoSQL\XMLtoSQL\XMLtoSQL\obj\Release\XMLtoSQL.pdb
+C:\Users\francis.brero\Documents\GitHub\XMLtoSQL\XMLtoSQL\XMLtoSQL\obj\Release\XMLtoSQL.csprojResolveAssemblyReference.cache
