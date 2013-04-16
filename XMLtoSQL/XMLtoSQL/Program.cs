@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Xml;
 using System.Data.SqlClient;
+using System.Web;
 
 namespace XMLtoSQL
 {
@@ -15,7 +16,8 @@ namespace XMLtoSQL
     public class sqlExecutor
     {
 
-        static SqlConnection getConnection(String serverName, String dbName, String dbUserName, String dbPassword)
+        // create an sql connection
+        static public SqlConnection getConnection(String serverName, String dbName, String dbUserName, String dbPassword)
         {
             SqlConnection sqlConnection = new SqlConnection("user id=" + dbUserName + ";" +
                                       "password=" + dbPassword + ";server=" + serverName + ";" +
@@ -26,6 +28,7 @@ namespace XMLtoSQL
             return sqlConnection;
         }
         
+        // Execute the given SQL Code
         static public void insertSqlCode(String sqlCode, String serverName, String dbName, String dbUserName, String dbPassword) {
 
             SqlConnection sqlConnection = getConnection(serverName, dbName, dbUserName, dbPassword);
@@ -66,6 +69,18 @@ namespace XMLtoSQL
             sqlCommand.ExecuteNonQuery();
 
             sqlConnection.Close();
+        }
+
+        // Returns the results of the sql query
+        static public String getCachedResults(String SqlCode, String serverName, String dbName, String dbUserName, String dbPassword)
+        {            
+            SqlConnection connection = sqlExecutor.getConnection(serverName, dbName, dbUserName, dbPassword);            
+            connection.Open();           
+            SqlCommand cmd = new SqlCommand(SqlCode, connection);
+            string result = "";
+            result = ((string)cmd.ExecuteScalar());
+            connection.Close();
+            return result;
         }
     }
 
@@ -109,34 +124,53 @@ namespace XMLtoSQL
     class Program
     {
 
-        static String dbUserName = "";
-        static String dbPassword = "";
-        static String serverName = "";
-        static String dbName = "";
+        static String dbUserName = "agilone_webapp_nextone";
+        static String dbPassword = "Iwjkljw8238*832lkjsdf";
+        static String serverName = "10.10.10.121";
+        static String dbName = "Moosejaw_NX_216_Input";
 
         static void Main(string[] args)
         {
+            // parameters
+            String path = "C:\\product.xml"; //args[0];
+            String nodeName = "product"; //args[1];
+            String nodeAttribute = "product - id"; //args[2];
+
             Console.Write("Start");
             //initialize
             List<Profile> listProfile = new List<Profile>();
+            // XmlDocument xmlDoc = prepareXML ("c:\\products.xml", "Product");
+            XmlNode root = getAllNodes("c:\\products.xml", "Product");
 
-            XmlNodeList xnlist = getAllNodes("c:\\product.xml", "Product");
 
-            Console.WriteLine(xnlist.Count);
+            //  Console.WriteLine(xnlist.Count);
 
-            XmlNodeList xnlistChild = xnlist[0].ChildNodes;
+            XmlNodeList xnlistChild = root.ChildNodes;
+            Console.WriteLine(xnlistChild.Count);
             foreach (XmlNode xn in xnlistChild)
             {
-                //Console.WriteLine(" Working on product : " + xn.Attributes["product-id"].Value);
-                Profile P = new Profile(xn.Attributes["product-id"].Value, getNameNode(xn), getValueNode(xn));
-                listProfile.Add(P);
-                //printList(getNameNode(xn));
-                //printList(getValueNode(xn));
+                if (xn.Name.Equals("product"))
+                {
+                    //Console.WriteLine(" Working on product : " + xn.Attributes["product-id"].Value);
+                    Profile P = new Profile(xn.Attributes["product-id"].Value, getNameNode(xn), getValueNode(xn));
+                    listProfile.Add(P);
+                    //printList(getNameNode(xn));
+                    //printList(getValueNode(xn));
+                }
             }
 
             exportToSQL("Product", listProfile);
 
-         //   Console.Read();
+            // Denormalize the data
+            String tableName = getTableName("Product");
+            String finalTable = "Products";
+            String columns = getColumnsForDenormalization(tableName);
+            String sqlCode = getSQLForDenormalization(tableName, columns, finalTable);
+            sqlExecutor.insertSqlCode(dropTable(finalTable), serverName, dbName, dbUserName, dbPassword);
+            //Console.WriteLine(sqlCode);
+            sqlExecutor.insertSqlCode(sqlCode, serverName, dbName, dbUserName, dbPassword);
+
+         Console.Read();
         }
 
         // Export Data
@@ -164,14 +198,14 @@ namespace XMLtoSQL
                 // Loop over the names for this CustomerID
                 if (NameList.Count > 0)
                 {
-                    sqlCodeValues += "(" + "'" + ID + "'" + " , " + "'" + NameList[0] + "'" + " , " + "LEFT('" + ValueList[0] + "',255)" + ")";
+                    sqlCodeValues += "(" + "'" + ID + "'" + " , " + "'" + NameList[0].Replace("'", "''") + "'" + " , " + "LEFT('" + ValueList[0].Replace("'", "''") + "',255)" + ")";
                 }
-                
-                for (int j = 1; j < NameList.Count; j++) 
+
+                for (int j = 1; j < NameList.Count; j++)
                 {
                     if (ValueList[j] != "")
                     {
-                        sqlCodeValues += ",(" + "'" + ID + "'" + " , " + "'" + NameList[j] + "'" + " , " + "LEFT('" + ValueList[j] + "',255)" + ")";                    
+                        sqlCodeValues += ",(" + "'" + ID + "'" + " , " + "'" + NameList[j].Replace("'", "''") + "'" + " , " + "LEFT('" + ValueList[j].Replace("'", "''") + "',255)" + ")";
                     }
                 }
 
@@ -210,8 +244,6 @@ namespace XMLtoSQL
             return tableName;
         }
 
-        // Get Node Name depending on Type
-
         //Get Node Name
         static String getNodeName(String Type)
         {
@@ -224,7 +256,7 @@ namespace XMLtoSQL
 
             if (Type == "Product")
             {
-                nodeName = "products";
+                nodeName = "catalog";
             }
 
             return nodeName;
@@ -242,20 +274,61 @@ namespace XMLtoSQL
             return text;
         }
 
-
-        // Returns the list of all the nodes
-        static System.Xml.XmlNodeList getAllNodes(String Path, String Type)
+        static XmlDocument prepareXML(String Path, String Type)
         {
             String typeName = getNodeName(Type);
-             String xmlText = getStringFromFile(Path);
-            
+            String xmlText = getStringFromFile(Path);
+
+            // RemoveXMLNS (works only once...) 
+            String xmlNoXmlns = RemoveXMLNS(xmlText);
+
             XmlDocument xml = new XmlDocument();
 
-            xml.LoadXml(xmlText);
+            xml.LoadXml(xmlNoXmlns);
 
-            XmlNodeList xnList = xml.SelectNodes("/" + typeName);
+            if (xml.FirstChild.Name.Equals("xml"))
+            {
+                xml.FirstChild.ParentNode.RemoveChild(xml.FirstChild);
+            }
 
-            return xnList;
+            XmlNode node = xml.SelectSingleNode("//header");
+
+            node.ParentNode.RemoveChild(node);
+
+            return xml;
+        }
+
+        // Removes the xmls block from the xml doc
+        public static String RemoveXMLNS(String xmlDoc)
+        {
+            String xmlNoXmlns;
+
+            int xmlnsIndex = xmlDoc.IndexOf("xmlns");
+            //  Console.WriteLine(xmlnsIndex);
+
+            int FirstQuoteIndex = xmlDoc.IndexOf("\"", xmlnsIndex + 5);
+            // Console.WriteLine(FirstQuoteIndex);
+
+            int SecondQuoteIndex = xmlDoc.IndexOf("\"", FirstQuoteIndex + 1);
+            // Console.WriteLine(SecondQuoteIndex);
+
+            xmlNoXmlns = xmlDoc.Remove(xmlnsIndex, SecondQuoteIndex - xmlnsIndex + 1);
+            // Console.WriteLine(xmlNoXmlns);
+
+            return xmlNoXmlns;
+        }
+
+        // Returns the list of all the nodes                
+        static System.Xml.XmlNode getAllNodes(String Path, String Type)
+        {
+            String typeName = getNodeName(Type);
+
+            XmlDocument xml = prepareXML(Path, Type);
+
+            XmlNode root = xml.FirstChild;
+            Console.WriteLine(root.Name);
+
+            return root;
         }
 
         // Determine if the node is a leaf
@@ -351,7 +424,43 @@ namespace XMLtoSQL
             }
         }
 
+        // Returns the SQL Code that will provide the columns to use for the denormalization
+        static string getColumnsForDenormalization(String tableName)
+        {
+            String columns = "";
+            String SQL = "";
+            SQL = @"SELECT DISTINCT Name FROM " + tableName + @" (NOLOCK)
+                    FOR XML PATH('')";
+            columns = sqlExecutor.getCachedResults(SQL, serverName, dbName, dbUserName, dbPassword).Replace("<Name>", ",[").Replace("</Name>", "]");
+            columns = columns.Substring(1, columns.Length-1);          
+            return columns;
+        }
+
+        // Returns the SQL Code to denormalize the imported data
+        static string getSQLForDenormalization(String tableName, String columns, String finalTable)
+        {
+            String sqlCode = "";            
+            sqlCode = @"SELECT	*
+                   INTO  " + finalTable + @"
+                   FROM
+			            (SELECT ID, Name, Value				
+			            FROM "+ tableName +@") AS SourceTable
+		            PIVOT
+		            (
+		            MIN(Value)
+		            FOR Name IN ( "+ columns + @" )) as pivottable ";
+            return sqlCode;
+        }
+
+        // Checks if a tables exist, if so droppes it
+        static String dropTable(String tableName)
+        {
+            String sqlCode = @"IF OBJECT_ID('"+tableName+@"') IS NOT NULL
+                            DROP TABLE " + tableName;
+            return sqlCode;
+        }
     }
+
 
 
 }
