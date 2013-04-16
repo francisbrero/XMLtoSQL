@@ -153,18 +153,18 @@ namespace XMLtoSQL
         static void Main(string[] args)
         {
             // parameters
-            String path = "C:\\bv_boschtools_standard_client_feed.xml"; //args[0];
-            String nodeName = "product"; //args[1];
-            String nodeAttribute = "id"; //args[2];
+            String path = args[0]; // "C:\\bv_boschtools_standard_client_feed.xml"; //
+            String nodeName = args[1]; // "Product"; //
+            String nodeAttribute = args[2]; // "id"; //
 
-            Console.Write("Start");
+            Console.WriteLine("Starting to process: " + path);
 
             // initialize
             String tableName = getTableName(nodeName.Replace('-', '_'));
             String finalTable = nodeName.Replace('-', '_');
 
             List<Profile> listProfile = new List<Profile>();
-            XmlNode root = getAllNodes(path, nodeName);
+            XmlNode root = getAllNodes(path);
 
             XmlNodeList xnlistChild = root.ChildNodes;
             
@@ -173,23 +173,31 @@ namespace XMLtoSQL
             {
                 if (xn.Name.Equals(nodeName))
                 {
+                    String AttributeValue = "";
+
+                    foreach (String nodeAttribute in nodeAttributeList)
+                    {
+                        AttributeValue += "|" + xn.Attributes[nodeAttribute].Value;
+                    }
                     Profile P = new Profile(xn.Attributes[nodeAttribute].Value, getNameNode(xn), getValueNode(xn));
                     listProfile.Add(P);
                 }
             }
+
             //Export all the attributes back to SQL in a normalized table
              // Check to see if the output table exists
             if (existsTable(tableName))
             {
-                String truncateSQLCode = "TRUNCATE TABLE " + tableName;
-                sqlExecutor.truncateSqlCode(truncateSQLCode, serverName, dbName, dbUserName, dbPassword);
+                truncateTable(tableName);
             }
             else
             {
                 createTable(tableName);
             }
 
-            exportToSQL(tableName, listProfile);
+            //exportToSQL(tableName, listProfile);
+            Console.WriteLine("Writing to: " + serverName + " " + dbName + " " + tableName);
+            exportToSQLBatch(tableName, listProfile);
 
             // Denormalize the data
              // initialize            
@@ -205,31 +213,31 @@ namespace XMLtoSQL
 
         // Export Data
         static void exportToSQL(String tableName, List<Profile> profileList)
-        {                            
-            // loop over the IDs (CustomerIDs)
+        {
+            // loop over the IDs (nodeID)
             for (int i = 0; i < profileList.Count-1; i++) 
             {
 
                 String sqlCodeAll = "INSERT INTO " + tableName + " (ID, Name, Value) Values ";
                 String sqlCodeValues = "";
 
-                // Get the CustomerID
+                // Get the nodeID
                 String ID = profileList[i].getProfileID();
 
-                // Get the names for this CustomerID
+                // Get the names for this nodeID
                 List<String> NameList = profileList[i].getProfileNameList();
 
-                // Get the values for this CustomerID
+                // Get the values for this nodeID
                 List<String> ValueList = profileList[i].getProfileValueList();
 
-                // Loop over the names for this CustomerID
-                if (NameList.Count > 0)
+                // Loop over the values for this nodeID
+                if (ValueList.Count > 0)
                 {
                     sqlCodeValues += "(" + "'" + ID + "'" + " , " + "'" + NameList[0].Replace("'", "''") + "'" + " , " + "LEFT('" + ValueList[0].Replace("'", "''") + "',255)" + ")";
                 }
 
                 //Since not all nodes will have a value but they will all have a name use ValueList for the loop
-                for (int j = 0; j < ValueList.Count - 1; j++)
+                for (int j = 1; j < ValueList.Count - 1; j++)
                 {
                     if (ValueList[j] != "")
                     {
@@ -237,18 +245,46 @@ namespace XMLtoSQL
                     }
                 }
 
-                sqlCodeAll += sqlCodeValues;
-                //Console.WriteLine(sqlCodeAll);
+                sqlCodeAll += sqlCodeValues;                
                 sqlExecutor.insertSqlCode(sqlCodeAll, serverName, dbName, dbUserName, dbPassword);
             }
 
         }
 
-        // Truncate a table
-        static void truncateTable(String Type)
+        // Export Data by batch -- SQL cannot insert more than 1000 values at a time
+        static void exportToSQLBatch(String tableName, List<Profile> profileList)
         {
-            String tableName = getTableName(Type);
+            // loop over the IDs (nodeID)
+            for (int i = 0; i < profileList.Count - 1; i++)
+            {               
+                // Get the nodeID
+                String ID = profileList[i].getProfileID();
 
+                // Get the names for this nodeID
+                List<String> NameList = profileList[i].getProfileNameList();
+
+                // Get the values for this nodeID
+                List<String> ValueList = profileList[i].getProfileValueList();
+                    
+
+                //Since not all nodes will have a value but they will all have a name use ValueList for the loop
+                for (int j = 1; j < ValueList.Count - 1; j++)
+                {
+                    if (ValueList[j] != "")
+                    {
+                        String sqlCodeAll = "INSERT INTO " + tableName + " (ID, Name, Value) Values ";
+                        String sqlCodeValues = "";
+                        sqlCodeValues += "(" + "'" + ID + "'" + " , " + "'" + NameList[j].Replace("'", "''") + "'" + " , " + "LEFT('" + ValueList[j].Replace("'", "''") + "',255)" + ")";
+                        sqlCodeAll += sqlCodeValues;
+                        sqlExecutor.insertSqlCode(sqlCodeAll, serverName, dbName, dbUserName, dbPassword);
+                    }
+                }               
+            }
+        }
+
+        // Truncate a table
+        static void truncateTable(String tableName)
+        {
             String sqlCode = "TRUNCATE TABLE " + tableName;
 
             sqlExecutor.truncateSqlCode(sqlCode, serverName, dbName, dbUserName, dbPassword);
@@ -259,16 +295,6 @@ namespace XMLtoSQL
         {
             String tableName = "";
             tableName = "XMLReplicator_" + Type;
-
-            //if (Type == "Customer")
-            //{
-            //    tableName = "dbo.XMLReplicator_Customer";
-            //}
-
-            //if (Type == "Product")
-            //{
-            //    tableName = "dbo.XMLReplicator_Product";
-            //}
 
             return tableName;
         }
@@ -295,25 +321,7 @@ namespace XMLtoSQL
             res += sqlExecutor.getCachedResults(sqlCode, serverName, dbName, dbUserName, dbPassword);
             rs = (res != "");
             return rs;
-        }
-
-        //Get Node Name
-        static String getNodeName(String Type)
-        {
-            String nodeName = "";
-
-            if (Type == "Customer")
-            {
-                nodeName = "customers";
-            }
-
-            if (Type == "Product")
-            {
-                nodeName = "catalog";
-            }
-
-            return nodeName;
-        }
+        }        
 
         // Load document from file to string
         static String getStringFromFile(String Path)
@@ -327,9 +335,9 @@ namespace XMLtoSQL
             return text;
         }
 
-        static XmlDocument prepareXML(String Path, String Type)
+        static XmlDocument prepareXML(String Path)
         {
-            String typeName = getNodeName(Type);
+            
             String xmlText = getStringFromFile(Path);
 
             // RemoveXMLNS (works only once...) 
@@ -375,14 +383,11 @@ namespace XMLtoSQL
         }
 
         // Returns the list of all the nodes                
-        static System.Xml.XmlNode getAllNodes(String Path, String Type)
+        static System.Xml.XmlNode getAllNodes(String Path)
         {
-            String typeName = getNodeName(Type);
-
-            XmlDocument xml = prepareXML(Path, Type);
+            XmlDocument xml = prepareXML(Path);
 
             XmlNode root = xml.FirstChild;
-            //Console.WriteLine(root.Name);
 
             return root;
         }
@@ -433,7 +438,7 @@ namespace XMLtoSQL
                 for (int i = 0; i < NChilds.Count; i++)
                 {
                     list = new List<string>();
-                    list = getNameNode(NChilds[i]);//addListToString(Name, getNameNode(NChilds[i]));
+                    list = addListToString(Name, getNameNode(NChilds[i])); //getNameNode(NChilds[i]);
 
                     foreach (String l in list)
                     {
@@ -503,7 +508,6 @@ namespace XMLtoSQL
                     FOR XML PATH('')";
             columns = sqlExecutor.getCachedResultsXMLPath(SQL, serverName, dbName, dbUserName, dbPassword);
             columns = columns.Substring(1, columns.Length-1); // remove the first coma
-            Console.WriteLine(columns.Length);
             return columns;
         }
 
