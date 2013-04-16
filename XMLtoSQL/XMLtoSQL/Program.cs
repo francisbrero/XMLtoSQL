@@ -147,27 +147,35 @@ namespace XMLtoSQL
 
         static String dbUserName = "agilone_webapp_nextone";
         static String dbPassword = "Iwjkljw8238*832lkjsdf";
-        static String serverName = "10.10.10.121";
+        static String serverName = "10.10.10.121"; //localhost
         static String dbName = "Moosejaw_NX_216_Input";
 
         static void Main(string[] args)
         {
             // parameters
-            String path = args[0]; // "C:\\bv_boschtools_standard_client_feed.xml"; //
-            String nodeName = args[1]; // "Product"; //
-            String nodeAttribute = args[2]; // "id"; //
+            //String path = args[1]; // "C:\\bv_boschtools_standard_client_feed.xml"; //
+            //String nodeName = args[2]; // "Product"; //
+            //String nodeAttribute = args[3]; // "id"; //
+
+           // String clientName = "Bosch";
+            String path = "C:\\bv_boschtools_standard_client_feed.xml"; //
+            String nodeName = "Product";
+            String nodeAttribute = "id"; // "id"; //
 
             Console.WriteLine("Starting to process: " + path);
 
             // initialize
+            //String dbName = getDBName(clientName);
             String tableName = getTableName(nodeName.Replace('-', '_'));
-            String finalTable = nodeName.Replace('-', '_');
+            String finalTable = getFinalTableName(nodeName.Replace('-', '_'));
 
             List<Profile> listProfile = new List<Profile>();
             XmlNode root = getAllNodes(path);
 
             XmlNodeList xnlistChild = root.ChildNodes;
-            
+
+            String[] nodeAttributeList = nodeAttribute.Split(',');
+
             // for each node get all the children attributes
             foreach (XmlNode xn in xnlistChild)
             {
@@ -175,7 +183,7 @@ namespace XMLtoSQL
                 {
                     String AttributeValue = "";
 
-                    foreach (String nodeAttribute in nodeAttributeList)
+                    foreach (String nodeAttributeLoop in nodeAttributeList)
                     {
                         AttributeValue += "|" + xn.Attributes[nodeAttribute].Value;
                     }
@@ -185,7 +193,7 @@ namespace XMLtoSQL
             }
 
             //Export all the attributes back to SQL in a normalized table
-             // Check to see if the output table exists
+            // Check to see if the output table exists
             if (existsTable(tableName))
             {
                 truncateTable(tableName);
@@ -200,15 +208,15 @@ namespace XMLtoSQL
             exportToSQLBatch(tableName, listProfile);
 
             // Denormalize the data
-             // initialize            
+            // initialize            
             String columns = getColumnsForDenormalization(tableName);
             String sqlCode = getSQLForDenormalization(tableName, columns, finalTable);
             sqlExecutor.insertSqlCode(dropTable(finalTable), serverName, dbName, dbUserName, dbPassword);
-            
-             // Denormalize
+
+            // Denormalize
             sqlExecutor.insertSqlCode(sqlCode, serverName, dbName, dbUserName, dbPassword);
 
-         //Console.Read();
+            //Console.Read();
         }
 
         // Export Data
@@ -295,6 +303,15 @@ namespace XMLtoSQL
         {
             String tableName = "";
             tableName = "XMLReplicator_" + Type;
+
+            return tableName;
+        }
+
+        // Get TableName depending on Type
+        static String getFinalTableName(String Type)
+        {
+            String tableName = "";
+            tableName = "XMLReplicator_Denorm" + Type;
 
             return tableName;
         }
@@ -415,12 +432,14 @@ namespace XMLtoSQL
                 XElement NXElement = GetXElement(N);
                 if (NXElement.HasAttributes)
                 {
+                    String nameNodeToAdd = N.Name;
                     var attributes = NXElement.Attributes().Select(d => new { Name = d.Name, Value = d.Value }).ToArray();
                     foreach (var attribute in attributes)
                     {
                         String Value = attribute.Value.ToString();
-                        L.Add(N.Name + '-' + Value);
+                        nameNodeToAdd += '-' + Value;
                     }
+                    L.Add(nameNodeToAdd);
                 }
                 else
                 {
@@ -545,8 +564,12 @@ namespace XMLtoSQL
             return xDoc.Root;
 
         }       
+
+        // Get DBName info
+        static String getDBName(String clientName)
+        {
+            String dbName = clientName + "_RawData";
+            return serverName;
+        }
     }
-
-
-
 }
