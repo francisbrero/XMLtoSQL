@@ -1,4 +1,6 @@
-XMLtoSQL
-========
+XMLReplicator
+=============
 
-Prototype for XML replication to SQL
+Prototype to Replicate XML files to SQL (mssql)
+please send any feedback
+

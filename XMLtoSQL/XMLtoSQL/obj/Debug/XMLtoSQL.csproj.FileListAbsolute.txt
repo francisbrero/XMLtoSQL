@@ -4,3 +4,9 @@ C:\Users\francis.brero\Documents\GitHub\XMLtoSQL\XMLtoSQL\XMLtoSQL\bin\Debug\XML
 C:\Users\francis.brero\Documents\GitHub\XMLtoSQL\XMLtoSQL\XMLtoSQL\obj\Debug\XMLtoSQL.csprojResolveAssemblyReference.cache
 C:\Users\francis.brero\Documents\GitHub\XMLtoSQL\XMLtoSQL\XMLtoSQL\obj\Debug\XMLtoSQL.exe
 C:\Users\francis.brero\Documents\GitHub\XMLtoSQL\XMLtoSQL\XMLtoSQL\obj\Debug\XMLtoSQL.pdb
+C:\Users\francis.brero\Documents\GitHub\XMLReplicator\XMLtoSQL\XMLtoSQL\bin\Debug\XMLtoSQL.exe.config
+C:\Users\francis.brero\Documents\GitHub\XMLReplicator\XMLtoSQL\XMLtoSQL\obj\Debug\XMLtoSQL.exe
+C:\Users\francis.brero\Documents\GitHub\XMLReplicator\XMLtoSQL\XMLtoSQL\obj\Debug\XMLtoSQL.pdb
+C:\Users\francis.brero\Documents\GitHub\XMLReplicator\XMLtoSQL\XMLtoSQL\bin\Debug\XMLtoSQL.exe
+C:\Users\francis.brero\Documents\GitHub\XMLReplicator\XMLtoSQL\XMLtoSQL\bin\Debug\XMLtoSQL.pdb
+C:\Users\francis.brero\Documents\GitHub\XMLReplicator\XMLtoSQL\XMLtoSQL\obj\Debug\XMLtoSQL.csprojResolveAssemblyReference.cache
